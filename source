@@ -7,23 +7,16 @@ namespace fwd_list {
     class Node {
     public:
         Node* next;
-        T* value;
+        T value;
 
         explicit Node(Node* next) :
                 next(next),
-                value(nullptr)
+                value()
         {}
 
         Node(Node* next, const T& elem) :
                 next(next),
-                value(nullptr)
-        {
-            value = new T(elem);
-        }
-
-        Node(Node* next, T* ptr) :
-            next(next),
-            value(ptr)
+                value(elem)
         { }
     };
 
@@ -38,22 +31,22 @@ namespace fwd_list {
             return *this;
         }
 
-        const ListIterator& operator++(int) {
+        ListIterator operator++(int) {
             auto copy = ListIterator(*this);
             ++(*this);
             return copy;
         }
 
         const T& operator* () const {
-            return *cur->value;
+            return cur->value;
         }
 
         T& operator* () {
-            return *cur->value;
+            return cur->value;
         }
 
-        T* & ptr_value () {
-            return cur->value;
+        Node<T>* ptr () {
+            return cur;
         }
 
         bool operator==(const ListIterator& oth) const {
@@ -72,103 +65,97 @@ namespace fwd_list {
 template <typename T>
 class List {
 public:
-    List() {
+    List():
+            sz(0)
+    {
         tail = new fwd_list::Node<T>(nullptr);
-        head = new fwd_list::Node<T>(tail);
+        head = tail;
     }
 
+    List(fwd_list::Node<T>* head, fwd_list::Node<T>* tail, size_t n) :
+            head(head),
+            tail(tail),
+            sz(n)
+    { }
+
     ~List() {
-        NodeClear(head);
+        DeleteAllNodes(head);
     }
 
     void push_front(const T& x) {
-        auto* ext = new fwd_list::Node<T>(head->next, x);
-        head->next = ext;
+        head = new fwd_list::Node<T>(head, x);
+        ++sz;
     }
 
     fwd_list::ListIterator<T> begin() {
-        return fwd_list::ListIterator<T>(head->next);
+        return fwd_list::ListIterator<T>(head);
     }
 
     fwd_list::ListIterator<T> end() {
         return fwd_list::ListIterator<T>(tail);
     }
 
-    fwd_list::Node<T>*& ptr_head () {
-        return head;
+    size_t size() const {
+        return sz;
     }
 
-    fwd_list::Node<T>*& ptr_tail () {
-        return tail;
+    bool empty() const {
+        return (sz == 0);
     }
 
+    void sort() {
+        size_t n = sz;
+        if (n < 2) return;
+
+        List<T> left;
+        for (size_t m = 0; 2*m < n; ++m) {
+            left.push_ptr(pop_ptr());
+        }
+
+        sort();
+        left.sort();
+
+        List<T> res;
+        while (!empty() || !left.empty()) {
+            if (left.empty() ||
+                    (!empty() && head->value < left.head->value)) {
+                res.push_ptr(pop_ptr());
+            } else {
+                res.push_ptr(left.pop_ptr());
+            }
+        }
+
+        while (!res.empty()){
+            push_ptr(res.pop_ptr());
+        }
+    }
 private:
-    // Delete all nodes from the list.
-    void NodeClear(fwd_list::Node<T>* cur) {
-        if (cur != nullptr) {
-            NodeClear(cur->next);
+    void DeleteAllNodes(fwd_list::Node<T>* cur) {
+        if (cur != tail) {
+            DeleteAllNodes(cur->next);
         }
         delete cur;
     }
 
+    fwd_list::Node<T>* pop_ptr() {
+        auto x = head;
+        head = x->next;
+        x->next = nullptr;
+        --sz;
+        return x;
+    }
+
+    void push_ptr(fwd_list::Node<T>* ptr) {
+        ptr->next = head;
+        head = ptr;
+        ++sz;
+    }
+
     fwd_list::Node<T>* head;
     fwd_list::Node<T>* tail;
+    size_t sz;
 };
 
-template <typename T>
-void sort(const fwd_list::ListIterator<T>& begin, const fwd_list::ListIterator<T>& end) {
-    size_t n = 0;
-    for (auto it = begin; it != end; ++it) {
-        ++n;
-    }
-
-    if (n < 2) return;
-
-    auto mid = begin;
-    size_t sz;
-    for (sz = 0; 2*sz < n; ++sz) {
-        ++mid;
-    }
-
-    sort(begin, mid);
-    sort(mid, end);
-
-    List<T> s;
-    auto cur = s.ptr_head();
-    auto it1 = begin;
-    auto it2 = mid;
-
-    for (; it1 != mid && it2 != end;) {
-        if (*it1 > *it2) {
-            cur->next = new fwd_list::Node<T>(nullptr, it2.ptr_value());
-            cur = cur->next;
-            ++it2;
-        } else {
-            cur->next = new fwd_list::Node<T>(nullptr, it1.ptr_value());
-            cur = cur->next;
-            ++it1;
-        }
-    }
-
-    for (; it1 != mid; ++it1) {
-        cur->next = new fwd_list::Node<T>(nullptr, it1.ptr_value());
-        cur = cur->next;
-    }
-
-    for (; it2 != end; ++it2) {
-        cur->next = new fwd_list::Node<T>(nullptr, it2.ptr_value());
-        cur = cur->next;
-    }
-    cur->next = s.ptr_tail();
-
-    it1 = begin;
-    it2 = s.begin();
-    while (it1 != end) {
-        it1.ptr_value() = it2.ptr_value();
-        ++it1;
-        ++it2;
-    }
-}
 
 int main() {
     List<int> lst;
@@ -180,9 +167,11 @@ int main() {
         lst.push_front(x);
     }
 
-    sort(lst.begin(), lst.end());
+    lst.sort();
+
     for (auto elem : lst) {
         std::cout << elem << ' ';
     }
+
     std::cout << '\n';
 }
